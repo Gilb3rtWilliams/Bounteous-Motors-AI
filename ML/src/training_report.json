@@ -1,0 +1,23 @@
+{
+  "training_date": "...",
+  "dataset_rows": 6019,
+  "dataset_columns": 12,
+  "models_tested": [
+    "Linear Regression",
+    "Decision Tree",
+    "Random Forest",
+    "Gradient Boosting",
+    "XGBoost"
+  ],
+  "best_model": "Random Forest",
+  "cross_validation_folds": 5,
+  "best_parameters": {
+    "n_estimators": 300,
+    "max_depth": 20
+  },
+  "metrics": {
+    "R²": 0.94,
+    "MAE": 152800,
+    "RMSE": 238700
+  }
+}
