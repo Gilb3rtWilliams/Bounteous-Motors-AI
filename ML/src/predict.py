@@ -5,56 +5,52 @@ Loads the trained Bounteous Motors AI pipeline and predicts
 vehicle prices using the trained machine learning pipeline.
 """
 
-import joblib
+from typing import Union
+
 import pandas as pd
 
-from ML.src.config import PIPELINE
-from ML.src.model_loader import MODEL_PIPELINE
 from ML.src.feature_engineering import engineer_features
+from ML.src.model_loader import MODEL_PIPELINE
 from ML.src.schemas import VehicleInput
 
 
-def load_pipeline():
-    """
-    Load the trained machine learning pipeline.
-
-    Returns:
-        sklearn.pipeline.Pipeline: Trained prediction pipeline.
-    """
-    return joblib.load(PIPELINE)
-
-
-# Load the pipeline once when this module is imported
-MODEL_PIPELINE = load_pipeline()
-
-
-def predict_price(vehicle: VehicleInput) -> float:
+def predict_price(vehicle: Union[VehicleInput, dict]) -> float:
     """
     Predict the selling price of a vehicle.
 
     Args:
-        vehicle (VehicleInput):
-            Validated vehicle information.
+        vehicle:
+            Either a VehicleInput object or a dictionary
+            containing vehicle details.
 
     Returns:
         float:
             Predicted vehicle price.
     """
 
-    # Convert the Pydantic model to a dictionary
-    vehicle_data = vehicle.model_dump()
+    # Convert the input into a dictionary
+    if isinstance(vehicle, VehicleInput):
+        vehicle_data = vehicle.model_dump()
+
+    elif isinstance(vehicle, dict):
+        vehicle_data = vehicle
+
+    else:
+        raise TypeError(
+            "vehicle must be either a VehicleInput instance or a dictionary."
+        )
 
     # Convert dictionary into a DataFrame
     df = pd.DataFrame([vehicle_data])
 
-    # Apply the same feature engineering used during training
+    # Apply feature engineering
     df = engineer_features(df)
 
     # Drop Year if it was removed during training
     if "Year" in df.columns and "Car_Age" in df.columns:
         df = df.drop(columns=["Year"])
 
-    # Predict
+    # Generate prediction
     prediction = MODEL_PIPELINE.predict(df)
 
     return float(prediction[0])
@@ -78,4 +74,4 @@ if __name__ == "__main__":
 
     predicted_price = predict_price(sample_vehicle)
 
-    print(f"Predicted Price: {predicted_price:,.2f}")
+    print(f"Predicted Price: KES {predicted_price:,.2f}")

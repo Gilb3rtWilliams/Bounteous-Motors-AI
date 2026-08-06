@@ -1,7 +1,7 @@
 """
 evaluation.py
 
-Utilities for evaluating machine learning models.
+Utilities for evaluating machine learning pipelines.
 """
 
 import json
@@ -16,24 +16,24 @@ from sklearn.metrics import (
     r2_score,
 )
 
-from config import (
+from ML.src.config import (
     METRICS_FILE,
     FIGURES_DIR,
 )
 
 
 def evaluate_model(
-    model,
+    pipeline,
     X_test,
     y_test,
     X_train=None,
     y_train=None,
 ):
     """
-    Evaluate a trained model.
+    Evaluate a trained pipeline.
     """
 
-    predictions = model.predict(X_test)
+    predictions = pipeline.predict(X_test)
 
     mae = mean_absolute_error(
         y_test,
@@ -61,7 +61,7 @@ def evaluate_model(
     if X_train is not None:
 
         metrics["Train R²"] = float(
-            model.score(
+            pipeline.score(
                 X_train,
                 y_train,
             )
@@ -81,7 +81,7 @@ def evaluate_model(
         predictions,
     )
 
-    plot_feature_importance(model)
+    plot_feature_importance(pipeline)
 
     return metrics
 
@@ -90,7 +90,7 @@ def print_metrics(metrics):
 
     print("=" * 60)
 
-    print("MODEL EVALUATION")
+    print("pipeline EVALUATION")
 
     print("=" * 60)
 
@@ -201,35 +201,34 @@ def plot_residuals(
 
     plt.close()
 
+def plot_feature_importance(pipeline):
 
-def plot_feature_importance(model):
+    estimator = pipeline.named_steps["model"]
 
-    estimator = model.named_steps["model"]
+    if hasattr(estimator, "feature_importances_"):
 
-    if not hasattr(
-        estimator,
-        "feature_importances_",
-    ):
+        importance = estimator.feature_importances_
+
+    elif hasattr(estimator, "coef_"):
+
+        importance = np.abs(estimator.coef_)
+
+    else:
+
+        print("Feature importance not available for this model.")
+
         return
 
-    importance = estimator.feature_importances_
+    plt.figure(figsize=(12, 6))
 
-    plt.figure(figsize=(12,6))
+    plt.bar(range(len(importance)), importance)
 
-    plt.bar(
-        range(len(importance)),
-        importance,
-    )
-
-    plt.title(
-        "Feature Importance"
-    )
+    plt.title("Feature Importance")
 
     plt.tight_layout()
 
     plt.savefig(
-        Path(FIGURES_DIR)
-        / "feature_importance.png"
+        Path(FIGURES_DIR) / "feature_importance.png"
     )
 
     plt.close()

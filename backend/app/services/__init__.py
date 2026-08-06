@@ -1,0 +1,1 @@
+from .prediction_service import predict_vehicle_price

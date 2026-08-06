@@ -6,7 +6,14 @@ Creates new features from the cleaned vehicle dataset.
 
 import pandas as pd
 
-from config import CURRENT_YEAR
+from ML.src.config import (
+    CURRENT_YEAR,
+    CLEAN_DATASET,
+    ENGINEERED_DATASET,
+)
+
+from ML.src.cleaning import clean_dataset
+from ML.src.data_loader import load_dataset
 
 LUXURY_BRANDS = {
     "Audi",
@@ -71,6 +78,15 @@ def drop_unused_columns(df: pd.DataFrame) -> pd.DataFrame:
     print("✓ Name column dropped.")
     return df
 
+def save_engineered_dataset(df: pd.DataFrame) -> None:
+    """
+    Save the engineered dataset.
+    """
+
+    df.to_csv(ENGINEERED_DATASET, index=False)
+
+    print(f"✓ Engineered dataset saved to:\n{ENGINEERED_DATASET}")
+
 
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     print("=" * 60)
@@ -85,8 +101,28 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     df = create_power_per_cc(df)
     df = drop_unused_columns(df)
 
+    save_engineered_dataset(df)
+
     print("=" * 60)
     print("Feature engineering complete.")
     print("=" * 60)
 
     return df
+
+    # =============================================================================
+# Script Entry Point
+# =============================================================================
+
+if __name__ == "__main__":
+
+    # Load the raw dataset
+    dataset = load_dataset()
+
+    # Clean it first
+    cleaned_dataset = clean_dataset(dataset)
+
+    # Engineer features
+    engineered_dataset = engineer_features(cleaned_dataset)
+
+    print("\nFirst five rows of engineered dataset:\n")
+    print(engineered_dataset.head())

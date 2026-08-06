@@ -4,15 +4,17 @@ cleaning.py
 Contains reusable functions for cleaning the Bounteous Motors AI vehicle dataset.
 """
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from config import (
+from ML.src.config import (
     CLEAN_DATASET,
     CURRENT_YEAR,
     SOURCE_CURRENCY,
     TARGET_CURRENCY,
-    USD_TO_KES,
+    LAKH_TO_INR,
+    INR_TO_KES,
+    LOCATION_MAPPING,
 )
 
 # =============================================================================
@@ -24,9 +26,8 @@ def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
 
     before = len(df)
     df = df.drop_duplicates()
-    removed = before - len(df)
 
-    print(f"✓ Removed {removed} duplicate rows.")
+    print(f"✓ Removed {before - len(df)} duplicate rows.")
 
     return df
 
@@ -36,7 +37,10 @@ def drop_unused_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     columns_to_drop = ["S.No.", "New_Price"]
 
-    existing_columns = [col for col in columns_to_drop if col in df.columns]
+    existing_columns = [
+        col for col in columns_to_drop
+        if col in df.columns
+    ]
 
     df = df.drop(columns=existing_columns)
 
@@ -52,9 +56,7 @@ def remove_missing_targets(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df.dropna(subset=["Price"])
 
-    removed = before - len(df)
-
-    print(f"✓ Removed {removed} rows with missing Price.")
+    print(f"✓ Removed {before - len(df)} rows with missing Price.")
 
     return df
 
@@ -64,7 +66,7 @@ def remove_missing_targets(df: pd.DataFrame) -> pd.DataFrame:
 # =============================================================================
 
 def clean_mileage(df: pd.DataFrame) -> pd.DataFrame:
-    """Convert Mileage column into numeric."""
+    """Convert Mileage into numeric."""
 
     df["Mileage"] = (
         df["Mileage"]
@@ -79,7 +81,7 @@ def clean_mileage(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def clean_engine(df: pd.DataFrame) -> pd.DataFrame:
-    """Convert Engine column into numeric."""
+    """Convert Engine into numeric."""
 
     df["Engine"] = (
         df["Engine"]
@@ -94,7 +96,7 @@ def clean_engine(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def clean_power(df: pd.DataFrame) -> pd.DataFrame:
-    """Convert Power column into numeric."""
+    """Convert Power into numeric."""
 
     df["Power"] = (
         df["Power"]
@@ -112,21 +114,23 @@ def clean_power(df: pd.DataFrame) -> pd.DataFrame:
 # Currency Conversion
 # =============================================================================
 
-def convert_currency(
-    df: pd.DataFrame,
-    column: str,
-    rate: float,
-) -> pd.DataFrame:
+def convert_currency(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Convert a currency column using the supplied exchange rate.
+    Convert vehicle prices from Lakh Indian Rupees
+    to Kenyan Shillings.
     """
-
-    df[column] = df[column] * rate
 
     print(
-        f"✓ Converted {column} "
-        f"from {SOURCE_CURRENCY} to {TARGET_CURRENCY}."
+        f"\nConverting prices from {SOURCE_CURRENCY} to {TARGET_CURRENCY}..."
     )
+
+    df["Price"] = (
+        df["Price"]
+        * LAKH_TO_INR
+        * INR_TO_KES
+    )
+
+    print("✓ Currency conversion complete.")
 
     return df
 
@@ -134,6 +138,24 @@ def convert_currency(
 # =============================================================================
 # Missing Values
 # =============================================================================
+
+def fix_invalid_seats(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Replace invalid seat counts with NaN.
+    """
+
+    invalid = (df["Seats"] == 0).sum()
+
+    if invalid > 0:
+
+        df.loc[df["Seats"] == 0, "Seats"] = np.nan
+
+        print(
+            f"✓ Corrected {invalid} row(s) with invalid seat counts."
+        )
+
+    return df
+
 
 def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -145,7 +167,7 @@ def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
 
     numeric_columns = df.select_dtypes(include=np.number).columns
 
-    categorical_columns = df.select_dtypes(include="object").columns
+    categorical_columns = df.select_dtypes(include=["object", "string"]).columns
 
     for column in numeric_columns:
 
@@ -153,7 +175,7 @@ def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
 
             df[column] = df[column].fillna(df[column].median())
 
-            print(f"✓ Filled missing values in '{column}' using median.")
+            print(f"✓ Filled '{column}' using median.")
 
     for column in categorical_columns:
 
@@ -161,7 +183,7 @@ def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
 
             df[column] = df[column].fillna(df[column].mode()[0])
 
-            print(f"✓ Filled missing values in '{column}' using mode.")
+            print(f"✓ Filled '{column}' using mode.")
 
     return df
 
@@ -171,9 +193,9 @@ def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
 # =============================================================================
 
 def standardize_categories(df: pd.DataFrame) -> pd.DataFrame:
-    """Standardize categorical values."""
+    """Standardize categorical text."""
 
-    categorical_columns = df.select_dtypes(include="object").columns
+    categorical_columns = df.select_dtypes(include=["object", "string"]).columns
 
     for column in categorical_columns:
 
@@ -184,7 +206,27 @@ def standardize_categories(df: pd.DataFrame) -> pd.DataFrame:
             .str.title()
         )
 
-    print("✓ Standardized categorical columns.")
+    print("✓ Standardized categorical values.")
+
+    return df
+
+
+# =============================================================================
+# Location Mapping
+# =============================================================================
+
+def map_locations(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Replace Indian cities with Kenyan cities so that the
+    model represents the Kenyan vehicle market.
+    """
+
+    df["Location"] = (
+        df["Location"]
+        .replace(LOCATION_MAPPING)
+    )
+
+    print("✓ Converted Indian locations to Kenyan locations.")
 
     return df
 
@@ -194,15 +236,13 @@ def standardize_categories(df: pd.DataFrame) -> pd.DataFrame:
 # =============================================================================
 
 def validate_dataset(df: pd.DataFrame) -> None:
-    """
-    Perform sanity checks on the cleaned dataset.
-    """
+    """Validate the cleaned dataset."""
 
     if df.empty:
         raise ValueError("Dataset is empty.")
 
     if (df["Price"] <= 0).any():
-        raise ValueError("Negative or zero prices detected.")
+        raise ValueError("Invalid prices detected.")
 
     if (df["Year"] > CURRENT_YEAR).any():
         raise ValueError("Future vehicle years detected.")
@@ -217,7 +257,7 @@ def validate_dataset(df: pd.DataFrame) -> None:
 
 
 # =============================================================================
-# Save Clean Dataset
+# Save Dataset
 # =============================================================================
 
 def save_clean_dataset(df: pd.DataFrame) -> None:
@@ -229,12 +269,12 @@ def save_clean_dataset(df: pd.DataFrame) -> None:
 
 
 # =============================================================================
-# Master Cleaning Function
+# Master Cleaning Pipeline
 # =============================================================================
 
 def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Execute the complete data-cleaning pipeline.
+    Execute the full cleaning pipeline.
     """
 
     print("=" * 60)
@@ -253,11 +293,15 @@ def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
 
     df = clean_power(df)
 
-    df = convert_currency(df, "Price", USD_TO_KES)
+    df = convert_currency(df)
+
+    df = fix_invalid_seats(df)
 
     df = handle_missing_values(df)
 
     df = standardize_categories(df)
+
+    df = map_locations(df)
 
     validate_dataset(df)
 
@@ -268,3 +312,17 @@ def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
     print("=" * 60)
 
     return df
+
+# =============================================================================
+# Script Entry Point
+# =============================================================================
+
+from ML.src.data_loader import load_dataset
+
+
+if __name__ == "__main__":
+    dataset = load_dataset()
+    cleaned_dataset = clean_dataset(dataset)
+
+    print("\nFirst five rows of the cleaned dataset:")
+    print(cleaned_dataset.head())

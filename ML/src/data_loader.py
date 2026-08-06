@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import RAW_DATASET
+from ML.src.config import RAW_DATASET
 
 
 def load_dataset():
